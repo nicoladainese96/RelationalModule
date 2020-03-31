@@ -81,7 +81,7 @@ def train_boxworld(agent, game_params, n_episodes = 1000, max_steps=120, return_
         game = bw.make_game(**game_params)
         rewards, log_probs, states, done, bootstrap = play_episode(agent, game, max_steps)
         t1 = time.time()
-        print("Time playing the episode: %.2f s"%(t1-t0))
+        #print("Time playing the episode: %.2f s"%(t1-t0))
         performance.append(np.sum(rewards))
         #if (e+1)%100 == 0:
         #    print("Episode %d - reward: %.0f"%(e+1, np.mean(performance[-100:])))
@@ -89,7 +89,7 @@ def train_boxworld(agent, game_params, n_episodes = 1000, max_steps=120, return_
 
         agent.update(rewards, log_probs, states, done, bootstrap)
         t2 = time.time()
-        print("Time updating the agent: %.2f s"%(t2-t1))
+        #print("Time updating the agent: %.2f s"%(t2-t1))
             
         time_profile.append([t1-t0, t2-t1])
         
