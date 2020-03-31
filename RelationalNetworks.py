@@ -8,11 +8,12 @@ debug = False
 
 class ExtractEntities(nn.Module):
     """Parse raw RGB pixels into entieties (vectors of k_out dimensions)"""
-    def __init__(self, k_out, k_in=1, kernel_size=2, stride=1, padding=0):
+    def __init__(self, k_out, k_in=1, vocab_size = 117, n_dim=3, kernel_size=2, stride=1, padding=0):
         super(ExtractEntities, self).__init__()
         assert k_out%2 == 0, "Please provide an even number of output kernels k_out"
+        self.embed = nn.Embedding(vocab_size, n_dim)
         layers = []
-        layers.append(nn.Conv2d(k_in, k_out//2, kernel_size, stride, padding))
+        layers.append(nn.Conv2d(n_dim*k_in, k_out//2, kernel_size, stride, padding))
         layers.append(nn.ReLU())
         layers.append(nn.Conv2d(k_out//2, k_out, kernel_size, stride, padding))
         layers.append(nn.ReLU())
@@ -20,11 +21,16 @@ class ExtractEntities(nn.Module):
         
     def forward(self, x):
         """
-        Accepts an input of shape (batch_size, linear_size, linear_size, k_in)
-        Returns a tensor of shape (batch_size, linear_size, linear_size, 2*k_out)
+        Accepts an input of shape (batch_size, k_in, linear_size, linear_size, )
+        Returns a tensor of shape (batch_size, 2*k_out, linear_size, linear_size)
         """
         if debug:
             print("x.shape (before ExtractEntities): ", x.shape)
+        if len(x.shape) <= 3:
+            x = x.unsqueeze(0)
+        x = self.embed(x)
+        x = x.transpose(-1,-3)
+        x = x.transpose(-1,-2).reshape(x.shape[0],-1,x.shape[-2],x.shape[-1])
         x = self.net(x)
         if debug:
             print("x.shape (ExtractEntities): ", x.shape)
@@ -192,7 +198,8 @@ class BoxWorldNet(nn.Module):
     - Multi-layer Perceptron with some (defaul = 4) fully-connected layers
     
     """
-    def __init__(self, in_channels=1, n_kernels=24, n_features=256, n_heads=4, n_attn_modules=2, n_linears=4):
+    def __init__(self, in_channels=1, n_kernels=24, vocab_size = 117, n_dim=3,
+                 n_features=256, n_heads=4, n_attn_modules=2, n_linears=4):
         """
         Parameters
         ----------
@@ -200,6 +207,11 @@ class BoxWorldNet(nn.Module):
             Number of channels of the input image (e.g. 3 for RGB)
         n_kernels: int (default 24)
             Number of features extracted for each pixel
+        vocab_size: int (default 117)
+            Range of integer values of the raw pixels
+        n_dim: int (default 3)
+            Embedding dimension for each pixel channel (1 channel for greyscale, 
+            3 for RGB)
         n_features: int (default 256)
             Number of linearly projected features after positional encoding.
             This is the number of features used during the Multi-Headed Attention
@@ -218,7 +230,7 @@ class BoxWorldNet(nn.Module):
         MLP = clones( nn.Linear(n_features,n_features), n_linears)
         
         self.net = nn.Sequential(
-            ExtractEntities(n_kernels, in_channels),
+            ExtractEntities(n_kernels, in_channels, vocab_size, n_dim),
             RelationalModule(n_kernels, n_features, n_heads, n_attn_modules),
             FeaturewiseMaxPool(pixel_axis = 0),
             *MLP)

@@ -19,10 +19,10 @@ def show_game_state(observation):
         
 def get_state(observation):
     walls = observation.layers['#']
-    board = observation.board.astype('float')
+    board = observation.board#.astype('float')
     grid_size = board.shape[0]
     board = board.reshape(1, grid_size, grid_size)
-    return board/MAX_PIXEL
+    return board #/MAX_PIXEL
 
 def play_episode(agent, game, max_steps=120):
 

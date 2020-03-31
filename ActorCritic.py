@@ -62,6 +62,11 @@ class BoxWorldA2C():
                     Number of channels of the input image (e.g. 3 for RGB)
                 n_kernels: int (default 24)
                     Number of features extracted for each pixel
+                vocab_size: int (default 116)
+                    Range of integer values of the raw pixels
+                n_dim: int (default 3)
+                    Embedding dimension for each pixel channel (1 channel for greyscale, 
+                    3 for RGB)
                 n_features: int (default 256)
                     Number of linearly projected features after positional encoding.
                     This is the number of features used during the Multi-Headed Attention
@@ -139,11 +144,11 @@ class BoxWorldA2C():
         
         Parameters
         ----------
-        state:
-            If self.discrete is True state.shape = (episode_len,)
-            Otherwise state.shape = (episode_len, observation_space)
+        state: array of int
+            Shape (episode_len, in_channels, lin_size, lin_size)
+            Or    (in_channels, lin_size, lin_size)
         """
-        state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+        state = torch.from_numpy(state.astype(int)).to(self.device)
         log_probs = self.actor(state)
         return log_probs
     
@@ -172,10 +177,10 @@ class BoxWorldA2C():
             print("done.shape: (before n_steps)", done.shape)
             print("done: (before n_steps)", done)
         
-        old_states = torch.tensor(states[:-1]).float().to(self.device)
+        old_states = torch.tensor(states[:-1].astype(int)).to(self.device)
 
         new_states, Gamma_V, done = self.compute_n_step_states(states, done)
-        new_states = torch.tensor(new_states).float().to(self.device)
+        new_states = torch.tensor(new_states.astype(int)).to(self.device)
 
         if debug:
             print("done.shape: (after n_steps)", done.shape)
@@ -336,7 +341,7 @@ class BoxWorldA2C():
             
             if bootstrap[-1] == True:
             
-                last_state = torch.tensor(states[-1]).float().to(self.device).unsqueeze(0)
+                last_state = torch.tensor(states[-1].astype(int)).to(self.device).unsqueeze(0)
                 print("last_state: ", last_state.shape)
                 
                 if self.twin:
@@ -361,10 +366,8 @@ class BoxWorldA2C():
         
         dr = torch.tensor(discounted_rewards).float().to(self.device) 
         
-        old_states = torch.tensor(states[:-1]).float().to(self.device)
-        new_states = torch.tensor(states[1:]).float().to(self.device)
-        print("old_states.shape: ", old_states.shape)
-        print("new_states.shape: ", new_states.shape)
+        old_states = torch.tensor(states[:-1].astype(int)).to(self.device)
+        new_states = torch.tensor(states[1:].astype(int)).to(self.device)
         done = torch.LongTensor(done.astype(int)).to(self.device)
         log_probs = torch.stack(log_probs).to(self.device)
         

@@ -21,6 +21,11 @@ class BoxWorldActor(nn.Module):
                     Number of channels of the input image (e.g. 3 for RGB)
                 n_kernels: int (default 24)
                     Number of features extracted for each pixel
+                vocab_size: int (default 116)
+                    Range of integer values of the raw pixels
+                n_dim: int (default 3)
+                    Embedding dimension for each pixel channel (1 channel for greyscale, 
+                    3 for RGB)
                 n_features: int (default 256)
                     Number of linearly projected features after positional encoding.
                     This is the number of features used during the Multi-Headed Attention
@@ -83,6 +88,11 @@ class BoxWorldCritic(nn.Module):
                     Number of channels of the input image (e.g. 3 for RGB)
                 n_kernels: int (default 24)
                     Number of features extracted for each pixel
+                vocab_size: int (default 116)
+                    Range of integer values of the raw pixels
+                n_dim: int (default 3)
+                    Embedding dimension for each pixel channel (1 channel for greyscale, 
+                    3 for RGB)
                 n_features: int (default 256)
                     Number of linearly projected features after positional encoding.
                     This is the number of features used during the Multi-Headed Attention
