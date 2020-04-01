@@ -18,6 +18,7 @@ def show_game_state(observation):
     for row in observation.board: print(row.tostring().decode('ascii'))
         
 def get_state(observation):
+    #print("Keys: ", observation.layers.keys())
     walls = observation.layers['#']
     board = observation.board#.astype('float')
     grid_size = board.shape[0]
@@ -83,9 +84,9 @@ def train_boxworld(agent, game_params, n_episodes = 1000, max_steps=120, return_
         t1 = time.time()
         #print("Time playing the episode: %.2f s"%(t1-t0))
         performance.append(np.sum(rewards))
-        #if (e+1)%100 == 0:
-        #    print("Episode %d - reward: %.0f"%(e+1, np.mean(performance[-100:])))
-        print("Episode %d - reward: %.0f"%(e+1, performance[-1]))
+        if (e+1)%100 == 0:
+            print("Episode %d - reward: %.0f"%(e+1, np.mean(performance[-100:])))
+        #print("Episode %d - reward: %.0f"%(e+1, performance[-1]))
 
         agent.update(rewards, log_probs, states, done, bootstrap)
         t2 = time.time()
