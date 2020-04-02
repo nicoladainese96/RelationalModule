@@ -15,7 +15,6 @@ class BoxWorldA2C():
     
     Notes
     -----
-    * GPU implementation is still work in progress.
     * Always uses 2 separate networks for the critic,one that learns from new experience 
       (student/critic) and the other one (critic_target/teacher)that is more conservative 
       and whose weights are updated through an exponential moving average of the weights 
@@ -53,8 +52,8 @@ class BoxWorldA2C():
         n_steps: int (default=1)
             Number of steps considered in TD update
         device: str in {'cpu','cuda'}
-            Implemented, but GPU slower than CPU because it's difficult to optimize a RL agent without
-            a replay buffer, that can be used only in off-policy algorithms.
+            Select if training agent with cpu or gpu. 
+            FIXME: At the moment is gpu is present, it MUST use the gpu.
         **box_net_args: dict (optional)
             Dictionary of {'key':value} pairs valid for BoxWorldNet.
             Valid keys:
@@ -170,7 +169,8 @@ class BoxWorldA2C():
             print("rewards.shape: ", rewards.shape)
             print("n_step_rewards: ", n_step_rewards)
             print("rewards: ", rewards)
-            
+            print("bootstrap: ", bootstrap)
+                
         if bootstrap is not None:
             done[bootstrap] = False 
         if debug:
@@ -193,7 +193,9 @@ class BoxWorldA2C():
         ### Wrap variables into tensors ###
         
         done = torch.LongTensor(done.astype(int)).to(self.device)
+        if debug: print("log_probs: ", log_probs)
         log_probs = torch.stack(log_probs).to(self.device)
+        if debug: print("log_probs: ", log_probs)
         n_step_rewards = torch.tensor(n_step_rewards).float().to(self.device)
         Gamma_V = torch.tensor(Gamma_V).float().to(self.device)
         
@@ -206,7 +208,7 @@ class BoxWorldA2C():
     def update_critic_TD(self, n_step_rewards, new_states, old_states, done, Gamma_V):
         
         # Compute loss 
-        
+        if debug: print("Updating critic...")
         with torch.no_grad():
             V_trg = self.critic_trg(new_states).squeeze()
             if debug:
@@ -217,14 +219,21 @@ class BoxWorldA2C():
             V_trg = V_trg.squeeze()
             if debug:
                 print("V_trg.shape (after squeeze): ", V_trg.shape)
+                print("V_trg.shape (after squeeze): ", V_trg)
             
         if self.twin:
             V1, V2 = self.critic(old_states)
+            if debug:
+                print("V1.shape: ", V1.squeeze().shape)
+                print("V1: ", V1)
             loss1 = 0.5*F.mse_loss(V1.squeeze(), V_trg)
             loss2 = 0.5*F.mse_loss(V2.squeeze(), V_trg)
             loss = loss1 + loss2
         else:
             V = self.critic(old_states).squeeze()
+            if debug: 
+                print("V.shape: ",  V.shape)
+                print("V: ",  V)
             loss = F.mse_loss(V, V_trg)
         
         # Backpropagate and update
@@ -243,24 +252,29 @@ class BoxWorldA2C():
     def update_actor_TD(self, n_step_rewards, log_probs, new_states, old_states, done, Gamma_V):
         
         # Compute gradient 
+        if debug: print("Updating actor...")
+        with torch.no_grad():
+            if self.twin:
+                V1, V2 = self.critic(old_states)
+                V_pred = torch.min(V1.squeeze(), V2.squeeze())
+                V1_new, V2_new = self.critic(new_states)
+                V_new = torch.min(V1_new.squeeze(), V2_new.squeeze())
+                V_trg = (1-done)*Gamma_V*V_new + n_step_rewards
+            else:
+                V_pred = self.critic(old_states).squeeze()
+                V_trg = (1-done)*Gamma_V*self.critic(new_states).squeeze()  + n_step_rewards
         
-        if self.twin:
-            V1, V2 = self.critic(old_states)
-            V_pred = torch.min(V1.squeeze(), V2.squeeze())
-            V1_new, V2_new = self.critic(new_states)
-            V_new = torch.min(V1_new.squeeze(), V2_new.squeeze())
-            V_trg = (1-done)*Gamma_V*V_new + n_step_rewards
-        else:
-            V_pred = self.critic(old_states).squeeze()
-            V_trg = (1-done)*Gamma_V*self.critic(new_states).squeeze()  + n_step_rewards
-            
         A = V_trg - V_pred
         policy_gradient = - log_probs*A
         if debug:
             print("V_trg.shape: ",V_trg.shape)
+            print("V_trg: ", V_trg)
             print("V_pred.shape: ",V_pred.shape)
+            print("V_pred: ", V_pred)
             print("A.shape: ", A.shape)
+            print("A: ", A)
             print("policy_gradient.shape: ", policy_gradient.shape)
+            print("policy_gradient: ", policy_gradient)
         policy_grad = torch.sum(policy_gradient)
  
         # Backpropagate and update

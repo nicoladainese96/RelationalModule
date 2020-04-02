@@ -19,13 +19,13 @@ def show_game_state(observation):
         
 def get_state(observation):
     #print("Keys: ", observation.layers.keys())
-    walls = observation.layers['#']
+    #walls = observation.layers['#']
     board = observation.board#.astype('float')
     grid_size = board.shape[0]
     board = board.reshape(1, grid_size, grid_size)
     return board #/MAX_PIXEL
 
-def play_episode(agent, game, max_steps=120):
+def play_episode(agent, game, max_steps):
 
     # Start the episode
     observation, _, _ = game.its_showtime()
@@ -60,6 +60,8 @@ def play_episode(agent, game, max_steps=120):
             bootstrap.append(False) 
         
         if not_terminal is False:
+            #print("steps: ", steps)
+            #print("Bootstrap needed: ", bootstrap[-1])
             break
             
         state = new_state
