@@ -166,7 +166,7 @@ class ControlActor(nn.Module):
                     Number of feature-wise feed-forward layers
         """
         super(ControlActor, self).__init__()
-        self.control_net = rnet.ControlNet(**control_net_args)
+        self.control_net = cnet.ControlNet(**control_net_args)
         self.linear = nn.Linear(self.control_net.n_features, action_space)
         
     def forward(self, state):
@@ -188,7 +188,7 @@ class ControlBasicCritic(nn.Module):
             Dictionary of {'key':value} pairs valid for ControlNet
         """
         super(ControlBasicCritic, self).__init__()
-        self.control_net = rnet.ControlNet(**control_net_args)
+        self.control_net = cnet.ControlNet(**control_net_args)
         self.linear = nn.Linear(self.control_net.n_features, 1)
     
     def forward(self, state):
