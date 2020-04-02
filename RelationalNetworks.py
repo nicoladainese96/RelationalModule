@@ -196,7 +196,7 @@ class ResidualLayer(nn.Module):
 
     def forward(self, x):
         out = F.relu(self.w1(self.norm(x)))
-        out = F.relu(self.w2(out))
+        out = self.w2(out)
         return out + x
     
 class BoxWorldNet(nn.Module):
