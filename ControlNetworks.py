@@ -151,7 +151,21 @@ class FeaturewiseMaxPool(nn.Module):
             print("x.shape (FeaturewiseMaxPool): ", x.shape)
         return x
     
+class ResidualLayer(nn.Module):
+    """
+    Implements residual layer. Use LayerNorm and ReLU activation before applying the layers.
+    """
+    def __init__(self, n_features, n_hidden):
+        super(ResidualLayer, self).__init__()
+        self.norm = nn.LayerNorm(n_features)
+        self.w1 = nn.Linear(n_features, n_hidden)
+        self.w2 = nn.Linear(n_hidden, n_features)
 
+    def forward(self, x):
+        out = F.relu(self.w1(self.norm(x)))
+        out = F.relu(self.w2(out))
+        return out + x
+    
 class ControlNet(nn.Module):
     """
     Implements architecture for BoxWorld agent of the paper Relational Deep Reinforcement Learning.
@@ -194,7 +208,7 @@ class ControlNet(nn.Module):
         
         self.n_features = n_features
         
-        MLP = clones( nn.Linear(n_features,n_features), n_linears)
+        MLP = clones( ResidualLayer(n_features,n_features), n_linears)
         
         self.net = nn.Sequential(
             ExtractEntities(n_kernels, in_channels, vocab_size, n_dim),

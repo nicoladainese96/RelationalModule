@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-debug = False
+debug = True
 
 class ExtractEntities(nn.Module):
     """Parse raw RGB pixels into entieties (vectors of k_out dimensions)"""
@@ -195,9 +195,9 @@ class ResidualLayer(nn.Module):
         self.w2 = nn.Linear(n_hidden, n_features)
 
     def forward(self, x):
-        x = F.relu(self.w1(self.norm(x)))
-        x = F.relu(self.w2(x))
-        return x
+        out = F.relu(self.w1(self.norm(x)))
+        out = F.relu(self.w2(out))
+        return out + x
     
 class BoxWorldNet(nn.Module):
     """
