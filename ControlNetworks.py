@@ -166,7 +166,7 @@ class ResidualLayer(nn.Module):
         out = F.relu(self.w2(out))
         return out + x
     
-class ControlNet(nn.Module):
+class ControlNet_v0(nn.Module):
     """
     Implements architecture for BoxWorld agent of the paper Relational Deep Reinforcement Learning.
     
@@ -204,7 +204,7 @@ class ControlNet(nn.Module):
         n_linears: int (default 4)
             Number of feature-wise feed-forward layers
         """
-        super(ControlNet, self).__init__()
+        super(ControlNet_v0, self).__init__()
         
         self.n_features = n_features
         
@@ -226,7 +226,60 @@ class ControlNet(nn.Module):
         return x
            
         
+class ControlNet(nn.Module):
+    """
+    Implements architecture for BoxWorld agent of the paper Relational Deep Reinforcement Learning.
+    
+    Architecture:
+    - 2 Convolutional layers (2x2 kernel size, stride 1, first with 12 out channels, second with 24)
+    - Positional Encoding layer (2 more channels encoding x,y pixels' positions) and then projecting the 26
+      channels to 256
+    - Control module
+    - FeaturewiseMaxPool layer
+    - Multi-layer Perceptron with some (defaul = 4) fully-connected layers
+    
+    """
+    def __init__(self, vocab_size=117, n_dim=3, linear_size = 14, n_features=256):
+        """
+        Parameters
+        ----------
+        vocab_size: int (default 117)
+            Range of integer values of the raw pixels
+        n_dim: int (default 3)
+            Embedding dimension for each pixel channel (1 channel for greyscale, 
+            3 for RGB)
+        n_features: int (default 256)
+            Number of linearly projected features after positional encoding.
+            This is the number of features used during the PositionwiseFeedForward
+            (PFF) block
+        n_linears: int (default 4)
+            Number of feature-wise feed-forward layers
+        """
+        super(ControlNet, self).__init__()
         
+        self.n_features = n_features
+
+        self.embed = self.embed = nn.Embedding(vocab_size, n_dim)
+        
+        self.net = nn.Sequential( nn.Linear(n_dim*linear_size**2, n_features*n_dim),
+                                  ResidualLayer(n_features*n_dim, n_features),
+                                  nn.Linear(n_features*n_dim, n_features),
+                                  ResidualLayer(n_features, n_features)
+                                )
+        
+        if debug:
+            print(self.net)
+        
+    def forward(self, x):
+        if len(x.shape) <= 3:
+            x = x.unsqueeze(0)
+        x = self.embed(x)
+        x = x.transpose(-1,-3)
+        x = x.transpose(-1,-2).reshape(x.shape[0],-1)
+        x = self.net(x)
+        if debug:
+            print("x.shape (BoxWorldNet): ", x.shape)
+        return x       
         
         
         

@@ -6,7 +6,7 @@ from torch.distributions import Categorical
 
 from RelationalModule.AC_networks import ControlActor, ControlCritic #custom module
 
-debug = False
+debug = True
 
 class ControlA2C():
     """
