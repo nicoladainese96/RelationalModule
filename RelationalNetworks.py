@@ -271,7 +271,7 @@ class BoxWorldNet(nn.Module):
             self.net = nn.Sequential(
                 ExtractEntities(n_kernels, in_channels, vocab_size, n_dim),
                 RelationalModule(n_kernels, n_features, n_heads, n_attn_modules),
-                FeaturewiseProjection((linear_size-2)**2),
+                FeaturewiseProjection(int((linear_size-2)**2)),
                 *MLP)
         
         if debug:
