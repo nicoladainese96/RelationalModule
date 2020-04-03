@@ -10,26 +10,37 @@ from RelationalModule import ActorCritic
 import time
 from importlib import reload
 reload(ActorCritic)
+import copy
 
 MAX_PIXEL = 116
 show = False
+debug = False
 
 def show_game_state(observation):
     for row in observation.board: print(row.tostring().decode('ascii'))
         
-def get_state(observation):
+def get_state(observation, mask=True):
     #print("Keys: ", observation.layers.keys())
-    #walls = observation.layers['#']
-    board = observation.board#.astype('float')
+    board = copy.deepcopy(observation.board)#.astype('float')
+    if debug: print("mask: ", mask)
+    if mask:
+        walls = observation.layers['#'].astype(int)
+        #print("walls: ", walls)
+        background = observation.layers[' '].astype(int)
+        #print("background: ", background)
+        ambient = walls + background
+        #print("ambient: ", ambient)
+        board[ambient.astype(bool)] = 0
+        #print("board (masked): ", board)
     grid_size = board.shape[0]
     board = board.reshape(1, grid_size, grid_size)
     return board #/MAX_PIXEL
 
-def play_episode(agent, game, max_steps):
+def play_episode(agent, game, max_steps, mask=True):
 
     # Start the episode
     observation, _, _ = game.its_showtime()
-    state = get_state(observation)
+    state = get_state(observation, mask)
     
     rewards = []
     log_probs = []
@@ -46,7 +57,7 @@ def play_episode(agent, game, max_steps):
 
         if show:
             show_game_state(new_obs)
-        new_state = get_state(new_obs)
+        new_state = get_state(new_obs, mask)
         
         rewards.append(reward)
         log_probs.append(log_prob)
@@ -73,7 +84,7 @@ def play_episode(agent, game, max_steps):
 
     return rewards, log_probs, np.array(states), done, bootstrap
 
-def train_boxworld(agent, game_params, n_episodes = 1000, max_steps=120, return_agent=False):
+def train_boxworld(agent, game_params, n_episodes = 1000, max_steps=120, return_agent=False, mask=True):
     performance = []
     time_profile = []
     
@@ -82,7 +93,7 @@ def train_boxworld(agent, game_params, n_episodes = 1000, max_steps=120, return_
         #print("Playing episode %d... "%(e+1))
         t0 = time.time()
         game = bw.make_game(**game_params)
-        rewards, log_probs, states, done, bootstrap = play_episode(agent, game, max_steps)
+        rewards, log_probs, states, done, bootstrap = play_episode(agent, game, max_steps, mask)
         t1 = time.time()
         #print("Time playing the episode: %.2f s"%(t1-t0))
         performance.append(np.sum(rewards))
