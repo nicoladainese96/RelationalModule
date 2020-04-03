@@ -44,14 +44,15 @@ def play_episode(agent, game, max_steps, mask=True):
     
     rewards = []
     log_probs = []
+    distributions = []
     states = [state]
     not_done = []
     bootstrap = []
         
     steps = 0
     while True:
-        
-        action, log_prob = agent.get_action(state, return_log = True)
+     
+        action, log_prob, distrib = agent.get_action(state, return_log = True)
         new_obs, reward, not_terminal = game.play(action)
         not_terminal = bool(not_terminal)
 
@@ -61,6 +62,7 @@ def play_episode(agent, game, max_steps, mask=True):
         
         rewards.append(reward)
         log_probs.append(log_prob)
+        distributions.append(distrib)
         states.append(new_state)
         not_done.append(not_terminal)
         
@@ -82,7 +84,7 @@ def play_episode(agent, game, max_steps, mask=True):
     done = ~np.array(not_done)
     bootstrap = np.array(bootstrap)
 
-    return rewards, log_probs, np.array(states), done, bootstrap
+    return rewards, log_probs, distributions, np.array(states), done, bootstrap
 
 def train_boxworld(agent, game_params, n_episodes = 1000, max_steps=120, return_agent=False, mask=True):
     performance = []
@@ -93,7 +95,7 @@ def train_boxworld(agent, game_params, n_episodes = 1000, max_steps=120, return_
         #print("Playing episode %d... "%(e+1))
         t0 = time.time()
         game = bw.make_game(**game_params)
-        rewards, log_probs, states, done, bootstrap = play_episode(agent, game, max_steps, mask)
+        rewards, log_probs, distributions, states, done, bootstrap = play_episode(agent, game, max_steps, mask)
         t1 = time.time()
         #print("Time playing the episode: %.2f s"%(t1-t0))
         performance.append(np.sum(rewards))
@@ -101,7 +103,7 @@ def train_boxworld(agent, game_params, n_episodes = 1000, max_steps=120, return_
             print("Episode %d - reward: %.2f"%(e+1, np.mean(performance[-100:])))
         #print("Episode %d - reward: %.0f"%(e+1, performance[-1]))
 
-        agent.update(rewards, log_probs, states, done, bootstrap)
+        agent.update(rewards, log_probs, distributions, states, done, bootstrap)
         t2 = time.time()
         #print("Time updating the agent: %.2f s"%(t2-t1))
             
