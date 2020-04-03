@@ -6,7 +6,7 @@ from torch.distributions import Categorical
 
 from RelationalModule.AC_networks import BoxWorldActor, BoxWorldCritic #custom module
 
-debug = False
+debug = True
 
 class BoxWorldA2C():
     """
@@ -28,7 +28,7 @@ class BoxWorldA2C():
     """ 
     
     def __init__(self, action_space, lr, gamma, TD=True, twin=False, tau = 1., 
-                 n_steps = 1, device='cpu', **box_net_args):
+                 H=1e-2, n_steps = 1, device='cpu', **box_net_args):
         """
         Parameters
         ----------
@@ -49,6 +49,8 @@ class BoxWorldA2C():
             at every step, if tau=0. critic_target is unchangable. 
             As a default this feature is disabled setting tau = 1, but if one wants to use it a good
             empirical value is 0.005.
+        H: float (default 1e-2)
+            Entropy multiplicative factor in actor's loss
         n_steps: int (default=1)
             Number of steps considered in TD update
         device: str in {'cpu','cuda'}
@@ -85,6 +87,7 @@ class BoxWorldA2C():
         self.TD = TD
         self.twin = twin 
         self.tau = tau
+        self.H = H
         self.n_steps = n_steps
         
         self.actor = BoxWorldActor(action_space, **box_net_args)
@@ -132,7 +135,8 @@ class BoxWorldA2C():
         probs = Categorical(dist)
         action =  probs.sample().item()
         if return_log:
-            return action, log_probs.view(-1)[action]
+            if debug: print("distribution: ", dist)
+            return action, log_probs.view(-1)[action], dist
         else:
             return action
     
@@ -159,7 +163,7 @@ class BoxWorldA2C():
         
         return critic_loss, actor_loss
     
-    def update_TD(self, rewards, log_probs, states, done, bootstrap=None):   
+    def update_TD(self, rewards, log_probs, distributions, states, done, bootstrap=None):   
         
         ### Compute n-steps rewards, states, discount factors and done mask ###
         
@@ -196,12 +200,16 @@ class BoxWorldA2C():
         if debug: print("log_probs: ", log_probs)
         log_probs = torch.stack(log_probs).to(self.device)
         if debug: print("log_probs: ", log_probs)
+        distributions = torch.stack(distributions, axis=1).to(self.device)
+        if debug: 
+            print("distributions.shape: ", distributions.shape)
+            print("distributions: ", distributions)
         n_step_rewards = torch.tensor(n_step_rewards).float().to(self.device)
         Gamma_V = torch.tensor(Gamma_V).float().to(self.device)
         
         ### Update critic and then actor ###
         critic_loss = self.update_critic_TD(n_step_rewards, new_states, old_states, done, Gamma_V)
-        actor_loss = self.update_actor_TD(n_step_rewards, log_probs, new_states, old_states, done, Gamma_V)
+        actor_loss = self.update_actor_TD(n_step_rewards, log_probs, distributions, new_states, old_states, done, Gamma_V)
         
         return critic_loss, actor_loss
     
@@ -249,7 +257,7 @@ class BoxWorldA2C():
         
         return loss.item()
     
-    def update_actor_TD(self, n_step_rewards, log_probs, new_states, old_states, done, Gamma_V):
+    def update_actor_TD(self, n_step_rewards, log_probs, distributions, new_states, old_states, done, Gamma_V):
         
         # Compute gradient 
         if debug: print("Updating actor...")
@@ -276,14 +284,23 @@ class BoxWorldA2C():
             print("policy_gradient.shape: ", policy_gradient.shape)
             print("policy_gradient: ", policy_gradient)
         policy_grad = torch.sum(policy_gradient)
- 
+        if debug: print("policy_grad: ", policy_grad)
+            
+        distributions = torch.stack(distributions).squeeze() # shape = (T,2)
+        # Compute negative entropy (no - in front)
+        entropy = torch.sum(distributions*torch.log(distributions)).sum()
+        if debug: print("Negative entropy: ", entropy)
+        
+        loss = policy_grad + H*entropy
+        if debug: print("Actor loss: ", loss)
+        
         # Backpropagate and update
     
         self.actor_optim.zero_grad()
-        policy_grad.backward()
+        loss.backward()
         self.actor_optim.step()
         
-        return policy_grad.item()
+        return loss.item()
     
     def compute_n_step_rewards(self, rewards):
         """
@@ -347,6 +364,8 @@ class BoxWorldA2C():
         
         return new_states, Gamma_V, done
     
+    ### Not mantained at the moment ###
+
     def update_MC(self, rewards, log_probs, states, done, bootstrap=None):   
         print("states: ", states.shape)
         ### Compute MC discounted returns ###
