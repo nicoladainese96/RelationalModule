@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-debug = True
+debug = False
 
 class ExtractEntities(nn.Module):
     """Parse raw RGB pixels into entieties (vectors of k_out dimensions)"""
@@ -184,6 +184,24 @@ class FeaturewiseMaxPool(nn.Module):
             print("x.shape (FeaturewiseMaxPool): ", x.shape)
         return x
     
+class FeaturewiseProjection(nn.Module):
+    """Applies max pooling along a given axis of a tensor"""
+    def __init__(self, n_pixels):
+        super(FeaturewiseProjection, self).__init__()
+        self.norm = nn.LayerNorm(n_pixels)
+        self.projection = nn.Linear(n_pixels,1)
+        
+    def forward(self, x):
+        if debug: print("x.shape (FeaturewiseProjection): ", x.shape)
+        x = x.transpose(-1,0)
+        shape = x.shape
+        if debug: print("x.shape (FeaturewiseProjection): ", x.shape)
+        x = self.projection(self.norm(x)).reshape(shape[0],shape[1])
+        if debug: print("x.shape (FeaturewiseProjection): ", x.shape)
+        x = x.transpose(-1,0)
+        if debug: print("x.shape (FeaturewiseProjection): ", x.shape)
+        return x
+    
 class ResidualLayer(nn.Module):
     """
     Implements residual layer. Use LayerNorm and ReLU activation before applying the layers.
@@ -213,7 +231,7 @@ class BoxWorldNet(nn.Module):
     
     """
     def __init__(self, in_channels=1, n_kernels=24, vocab_size = 117, n_dim=3,
-                 n_features=256, n_heads=4, n_attn_modules=2, n_linears=4):
+                 n_features=256, n_heads=4, n_attn_modules=2, n_linears=4, max_pool=True, linear_size=14):
         """
         Parameters
         ----------
@@ -243,11 +261,18 @@ class BoxWorldNet(nn.Module):
         
         MLP = clones(ResidualLayer(n_features, n_features), n_linears)
         
-        self.net = nn.Sequential(
-            ExtractEntities(n_kernels, in_channels, vocab_size, n_dim),
-            RelationalModule(n_kernels, n_features, n_heads, n_attn_modules),
-            FeaturewiseMaxPool(pixel_axis = 0),
-            *MLP)
+        if max_pool:
+            self.net = nn.Sequential(
+                ExtractEntities(n_kernels, in_channels, vocab_size, n_dim),
+                RelationalModule(n_kernels, n_features, n_heads, n_attn_modules),
+                FeaturewiseMaxPool(pixel_axis = 0),
+                *MLP)
+        else:
+            self.net = nn.Sequential(
+                ExtractEntities(n_kernels, in_channels, vocab_size, n_dim),
+                RelationalModule(n_kernels, n_features, n_heads, n_attn_modules),
+                FeaturewiseProjection((linear_size-2)**2),
+                *MLP)
         
         if debug:
             print(self.net)
